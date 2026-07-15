@@ -1,0 +1,1524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>SupplyOS</title>
+<script>document.documentElement.setAttribute("data-theme", localStorage.getItem("supplyos-theme") || "dark");</script>
+<link rel="icon" type="image/png" href="favicon.png">
+<meta name="description" content="SupplyOS — multi-tenant supply chain inventory system with AI-parsed vendor sales, dispatch tracking, and a live Supplied − Sold − Returned ledger.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="SupplyOS — Efficiency in every step">
+<meta property="og:description" content="Multi-tenant supply chain inventory system: AI-parsed vendor sales, dispatch tracking, and a live Supplied − Sold − Returned ledger across supplier and vendor portals.">
+<meta property="og:image" content="https://yashportfolio-1.web.app/supplyos/supplyos-og.png">
+<meta property="og:url" content="https://yashportfolio-1.web.app/supplyos/">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+  /* ============================================================
+     SupplyOS Design System — "IQON" dark-glass, mint accent
+     Shared with the hub (index.html)
+     ============================================================ */
+  :root{
+    /* Surfaces — near-black with faint sheen */
+    --bg:#0C0C0E; --surface:#141417; --surface-2:#1B1B1F; --rail:#0A0A0C;
+    /* Hairline borders */
+    --border:#232327; --border-strong:#2E2E34;
+    /* Type */
+    --text:#F2F2F3; --text-dim:#8B8B93; --text-faint:#5E5E66;
+    /* Single accent — mint green, used for primary actions + positive status */
+    --accent:#33D69F; --accent-dim:#25B183;
+    --accent-tint:rgba(51,214,159,0.10); --accent-line:rgba(51,214,159,0.30);
+    /* JS-generated markup references these; primary + success map to the mint accent */
+    --blue:#33D69F; --blue-soft:rgba(51,214,159,0.12);
+    --green:#33D69F; --green-soft:rgba(51,214,159,0.12);
+    --orange:#E0A045; --orange-soft:rgba(224,160,69,0.12);
+    --red:#F26D6D; --red-soft:rgba(242,109,109,0.12);
+    --radius:16px; --radius-sm:10px; --rail-w:64px; --subnav-w:244px;
+    --font:'Inter', system-ui, sans-serif;
+    --mono:'JetBrains Mono', ui-monospace, monospace;
+    --card-grad:linear-gradient(180deg, rgba(255,255,255,0.028), rgba(255,255,255,0) 42%);
+    --card-shadow:0 1px 2px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.03);
+    --chart-bar-muted:#26332E; --chart-bar-muted-hover:#2F433C;
+    /* Secondary brand hue — used to give the Vendor portal its own identity
+       (Supplier stays mint) so the two roles read as distinct at a glance. */
+    --accent-2:#8C7CF0; --accent-2-dim:#7364DE;
+    --accent-2-tint:rgba(140,124,240,0.12); --accent-2-line:rgba(140,124,240,0.34);
+    --info:#4FA6E8; --info-soft:rgba(79,166,232,0.12); --info-line:rgba(79,166,232,0.32);
+  }
+  :root[data-theme="light"]{
+    /* Surfaces — off-white with soft grey steps */
+    --bg:#F3F4F6; --surface:#FFFFFF; --surface-2:#EEEFF2; --rail:#FAFAFB;
+    --border:#E3E4E8; --border-strong:#D2D4DA;
+    --text:#16171B; --text-dim:#6B6C76; --text-faint:#9496A0;
+    --accent-tint:rgba(37,177,131,0.10); --accent-line:rgba(37,177,131,0.30);
+    --blue-soft:rgba(37,177,131,0.10); --green-soft:rgba(37,177,131,0.10);
+    --orange-soft:rgba(224,160,69,0.14); --red-soft:rgba(242,109,109,0.14);
+    --card-grad:linear-gradient(180deg, rgba(0,0,0,0.018), rgba(0,0,0,0) 42%);
+    --card-shadow:0 1px 2px rgba(20,20,30,0.06), inset 0 1px 0 rgba(255,255,255,0.6);
+    --chart-bar-muted:#DCEFE7; --chart-bar-muted-hover:#CBE7DA;
+    --accent-2:#6C5CE0; --accent-2-dim:#5A4BC4;
+    --accent-2-tint:rgba(108,92,224,0.10); --accent-2-line:rgba(108,92,224,0.30);
+    --info:#2F80C9; --info-soft:rgba(47,128,201,0.10); --info-line:rgba(47,128,201,0.3);
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html{-webkit-text-size-adjust:100%;}
+  body{ background:var(--bg); color:var(--text); font-family:var(--font); font-size:14px; -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; transition:background-color .18s ease, color .18s ease; }
+  body, .rail, .subnav, .topbar, .card, .auth-card, .role-badge{ transition:background-color .18s ease, border-color .18s ease, color .18s ease; }
+  .mono{ font-family:var(--mono); font-variant-numeric:tabular-nums; }
+  ::selection{ background:var(--accent-tint); }
+
+  /* ---------- Role identity: Supplier = mint, Vendor = violet ---------- */
+  #nav-vendor .nav-item.active{ background:var(--accent-2-tint); color:var(--accent-2); }
+  #rail-vendor .rail-btn.active{ background:var(--accent-2-tint); color:var(--accent-2); }
+  .role-vendor button:not(.secondary):not(.quicklink){ background:var(--accent-2); color:#fff; }
+  .role-vendor button:not(.secondary):not(.quicklink):hover{ background:var(--accent-2-dim); }
+  .role-vendor input:focus, .role-vendor select:focus{ border-color:var(--accent-2); box-shadow:0 0 0 3px var(--accent-2-tint); }
+  .role-badge.role-vendor{ border-left:3px solid var(--accent-2); }
+  .role-badge.role-supplier{ border-left:3px solid var(--accent); }
+  .role-badge.role-vendor .email strong{ color:var(--accent-2); }
+  #role-opt-vendor.active{ border-color:var(--accent-2); background:var(--accent-2-tint); color:var(--accent-2); font-weight:600; }
+  .dash-hero-role.role-supplier{ color:var(--accent); }
+  .dash-hero-role.role-vendor{ color:var(--accent-2); }
+  .role-vendor .quicklink-arrow{ color:var(--accent-2); }
+
+  /* ---------- Skeleton loading placeholder ---------- */
+  .skel-loading{ height:120px; border-radius:12px; background:var(--surface-2); position:relative; overflow:hidden; }
+  .skel-loading::after{ content:""; position:absolute; inset:0; background:linear-gradient(90deg, transparent, rgba(255,255,255,0.07), transparent); animation:skel-sheen 1.3s ease-in-out infinite; }
+  :root[data-theme="light"] .skel-loading::after{ background:linear-gradient(90deg, transparent, rgba(0,0,0,0.05), transparent); }
+  @keyframes skel-sheen{ from{ transform:translateX(-100%); } to{ transform:translateX(100%); } }
+
+  /* ---------- Toasts (replaces native alert()) ---------- */
+  #toast-stack{ position:fixed; top:1rem; left:50%; transform:translateX(-50%); z-index:200; display:flex; flex-direction:column; gap:0.5rem; align-items:center; width:min(92vw,380px); pointer-events:none; }
+  .toast{ width:100%; background:var(--card-grad), var(--surface); border:1px solid var(--border-strong); box-shadow:var(--card-shadow); border-radius:12px; padding:0.7rem 0.9rem; font-size:0.83rem; color:var(--text); pointer-events:auto; animation:toast-in .25s cubic-bezier(.2,.9,.3,1); }
+  .toast.ok{ border-left:3px solid var(--accent); }
+  .toast.err{ border-left:3px solid var(--red); }
+  .toast.leaving{ animation:toast-out .2s ease forwards; }
+  @keyframes toast-in{ from{ opacity:0; transform:translateY(-10px) scale(.96); } to{ opacity:1; transform:none; } }
+  @keyframes toast-out{ to{ opacity:0; transform:translateY(-8px) scale(.96); } }
+  @media(max-width:860px){ #toast-stack{ top:auto; bottom:calc(1rem + env(safe-area-inset-bottom)); } }
+
+  /* ---------- Confirm dialog (replaces native confirm()) ---------- */
+  .confirm-scrim{ position:fixed; inset:0; background:rgba(0,0,0,0.5); backdrop-filter:blur(2px); z-index:210; display:flex; align-items:center; justify-content:center; opacity:0; pointer-events:none; transition:opacity .18s ease; padding:1.2rem; }
+  .confirm-scrim.show{ opacity:1; pointer-events:auto; }
+  .confirm-card{ background:var(--card-grad), var(--surface); border:1px solid var(--border); border-radius:16px; padding:1.3rem; width:340px; max-width:100%; box-shadow:var(--card-shadow); transform:translateY(8px) scale(.98); transition:transform .18s ease; }
+  .confirm-scrim.show .confirm-card{ transform:none; }
+  .confirm-text{ font-size:0.88rem; margin-bottom:1.1rem; line-height:1.5; color:var(--text); }
+  .confirm-actions{ display:flex; gap:0.6rem; }
+  .confirm-actions button{ width:auto; flex:1; }
+
+  /* ---------- Auth screen ---------- */
+  #auth-screen{ position:fixed; inset:0; background:
+      radial-gradient(80% 60% at 50% -10%, rgba(51,214,159,0.10), transparent 60%),
+      radial-gradient(70% 50% at 100% 110%, rgba(120,90,220,0.08), transparent 55%),
+      var(--bg);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; padding:1.5rem; z-index:100; overflow-y:auto; }
+  .auth-brand{ width:92px; height:92px; border-radius:22px; overflow:hidden; background:#F5F6F8; display:flex; align-items:center; justify-content:center; margin-bottom:1.4rem; box-shadow:0 10px 34px rgba(0,0,0,0.5); }
+  .auth-brand img{ width:100%; height:100%; object-fit:contain; }
+  .auth-eyebrow{ color:var(--text-dim); font-family:var(--mono); font-weight:500; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:0.55rem; }
+  .auth-title{ font-size:1.7rem; font-weight:700; letter-spacing:-0.03em; margin-bottom:1.6rem; text-align:center; }
+  .auth-card{ background:var(--card-grad), var(--surface); border:1px solid var(--border); border-radius:18px; padding:1.75rem; width:390px; max-width:100%; box-shadow:var(--card-shadow); }
+  .auth-tabs{ display:flex; gap:0.3rem; margin-bottom:1.4rem; background:var(--bg); border:1px solid var(--border); border-radius:11px; padding:0.28rem; }
+  .auth-tab{ flex:1; text-align:center; padding:0.5rem; border-radius:8px; font-weight:600; font-size:0.83rem; cursor:pointer; color:var(--text-dim); transition:background .15s, color .15s; }
+  .auth-tab.active{ background:var(--surface-2); color:var(--text); }
+  .role-toggle{ display:flex; gap:0.55rem; margin-bottom:1rem; }
+  .role-option{ flex:1; border:1px solid var(--border-strong); border-radius:10px; padding:0.62rem; text-align:center; font-size:0.83rem; font-weight:500; cursor:pointer; color:var(--text-dim); transition:border-color .15s, background .15s, color .15s; }
+  .role-option.active{ border-color:var(--accent); background:var(--accent-tint); color:var(--accent); font-weight:600; }
+  #vendor-id-field{ display:none; }
+  #vendor-id-field.active{ display:block; }
+
+  /* ---------- App shell ---------- */
+  .app-shell{ display:none; }
+  .app-shell.active{ display:flex; height:100vh; overflow:hidden; }
+
+  /* Mobile top bar (hidden on desktop) */
+  .topbar{ display:none; }
+
+  /* Primary icon rail */
+  .rail{ width:var(--rail-w); flex-shrink:0; background:var(--rail); border-right:1px solid var(--border); display:flex; flex-direction:column; align-items:center; padding:16px 0; height:100vh; }
+  .brand{ width:38px; height:38px; border-radius:11px; background:linear-gradient(160deg, var(--accent), var(--accent-dim)); display:flex; align-items:center; justify-content:center; margin-bottom:18px; user-select:none; box-shadow:0 3px 14px rgba(51,214,159,0.22); }
+  .brand img{ width:74%; height:74%; object-fit:contain; }
+  .rail-group{ display:flex; flex-direction:column; align-items:center; gap:6px; }
+  .rail-spacer{ flex:1; }
+  .rail-btn{ width:42px; height:42px; border-radius:11px; display:flex; align-items:center; justify-content:center; color:var(--text-dim); background:transparent; border:none; cursor:pointer; transition:background .15s, color .15s, transform .1s ease; padding:0; }
+  .rail-btn svg{ width:19px; height:19px; stroke-width:1.6; }
+  .rail-btn:hover{ background:var(--surface-2); color:var(--text); }
+  .rail-btn:active{ transform:scale(0.92); }
+  .rail-btn.active{ background:var(--accent-tint); color:var(--accent); }
+  .rail-btn:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+  .theme-toggle-btn{ position:relative; }
+  .theme-toggle-btn svg{ position:absolute; top:50%; left:50%; transform:translate(-50%,-50%) rotate(0deg); opacity:1; transition:opacity .3s ease, transform .45s cubic-bezier(.34,1.4,.64,1); }
+  .theme-toggle-btn .icon-moon{ opacity:0; transform:translate(-50%,-50%) rotate(-90deg); }
+  :root[data-theme="light"] .theme-toggle-btn .icon-sun{ opacity:0; transform:translate(-50%,-50%) rotate(90deg); }
+  :root[data-theme="light"] .theme-toggle-btn .icon-moon{ opacity:1; transform:translate(-50%,-50%) rotate(0deg); }
+  .auth-theme-toggle{ position:fixed; top:1rem; right:1rem; width:42px; height:42px; border-radius:11px; background:var(--surface); border:1px solid var(--border); color:var(--text-dim); display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:110; padding:0; }
+  .auth-theme-toggle svg{ width:19px; height:19px; stroke-width:1.6; }
+  .auth-theme-toggle:hover{ color:var(--text); border-color:var(--border-strong); }
+
+  /* Secondary labeled nav */
+  .subnav{ width:var(--subnav-w); flex-shrink:0; background:var(--bg); border-right:1px solid var(--border); height:100vh; overflow-y:auto; padding:1.1rem 0.85rem; display:flex; flex-direction:column; }
+  .subnav-title{ font-size:0.78rem; font-weight:600; letter-spacing:0.02em; color:var(--text-dim); text-transform:uppercase; padding:0 0.5rem 0.6rem; }
+  .role-badge{ display:flex; flex-direction:column; gap:0.2rem; background:var(--card-grad), var(--surface); border:1px solid var(--border); color:var(--text); border-radius:12px; padding:0.65rem 0.8rem; font-size:0.78rem; font-weight:600; margin-bottom:1.1rem; box-shadow:var(--card-shadow); }
+  .role-badge .email{ font-family:var(--mono); font-weight:400; color:var(--text-dim); font-size:0.7rem; word-break:break-all; line-height:1.5; }
+  .role-badge .email strong{ color:var(--accent); font-weight:500; }
+  .nav-group-label{ font-size:0.64rem; color:var(--text-faint); font-weight:600; text-transform:uppercase; letter-spacing:0.07em; padding:0.75rem 0.6rem 0.3rem; }
+  .nav-group:first-of-type .nav-group-label{ padding-top:0.2rem; }
+  .nav-item{ display:flex; align-items:center; gap:0.62rem; padding:0.55rem 0.6rem; border-radius:10px; color:var(--text-dim); font-weight:500; cursor:pointer; margin-bottom:0.1rem; font-size:0.86rem; transition:background .13s, color .13s, transform .1s ease; }
+  .nav-item svg{ width:16px; height:16px; flex-shrink:0; stroke-width:1.7; }
+  .nav-item:hover{ background:var(--surface); color:var(--text); }
+  .nav-item:active{ transform:scale(0.98); }
+  .nav-item.active{ background:var(--accent-tint); color:var(--accent); }
+
+  /* ---------- Main ---------- */
+  .main{ flex:1; height:100vh; overflow-y:auto; padding:2rem clamp(1.5rem, 4vw, 3rem); }
+  .section{ display:none; } .section.active{ display:block; max-width:1080px; margin:0 auto; animation:section-in .3s ease; }
+  @keyframes section-in{ from{ opacity:0; transform:translateY(8px); } to{ opacity:1; transform:none; } }
+
+  /* Staggered entrance for generated card lists */
+  .quicklinks > *, .product-grid > *, #my-requests-wrap > *, #incoming-requests-wrap > * { animation:card-in .4s ease backwards; }
+  @keyframes card-in{ from{ opacity:0; transform:translateY(8px); } to{ opacity:1; transform:none; } }
+  .quicklinks > *:nth-child(1), .product-grid > *:nth-child(1), #my-requests-wrap > *:nth-child(1), #incoming-requests-wrap > *:nth-child(1){ animation-delay:.03s; }
+  .quicklinks > *:nth-child(2), .product-grid > *:nth-child(2), #my-requests-wrap > *:nth-child(2), #incoming-requests-wrap > *:nth-child(2){ animation-delay:.07s; }
+  .quicklinks > *:nth-child(3), .product-grid > *:nth-child(3), #my-requests-wrap > *:nth-child(3), #incoming-requests-wrap > *:nth-child(3){ animation-delay:.11s; }
+  .quicklinks > *:nth-child(4), .product-grid > *:nth-child(4), #my-requests-wrap > *:nth-child(4), #incoming-requests-wrap > *:nth-child(4){ animation-delay:.15s; }
+  .quicklinks > *:nth-child(5), .product-grid > *:nth-child(5), #my-requests-wrap > *:nth-child(5), #incoming-requests-wrap > *:nth-child(5){ animation-delay:.19s; }
+  .quicklinks > *:nth-child(6), .product-grid > *:nth-child(6), #my-requests-wrap > *:nth-child(6), #incoming-requests-wrap > *:nth-child(6){ animation-delay:.23s; }
+  .quicklinks > *:nth-child(n+7), .product-grid > *:nth-child(n+7), #my-requests-wrap > *:nth-child(n+7), #incoming-requests-wrap > *:nth-child(n+7){ animation-delay:.26s; }
+  .breadcrumb{ font-family:var(--mono); font-size:0.72rem; color:var(--text-faint); letter-spacing:0.02em; margin-bottom:0.7rem; }
+  .page-header{ display:flex; align-items:center; justify-content:space-between; margin-bottom:1.6rem; flex-wrap:wrap; gap:0.75rem; }
+  .page-title{ font-size:1.55rem; font-weight:700; letter-spacing:-0.03em; }
+  .card{ background:var(--card-grad), var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:1.4rem; margin-bottom:1.15rem; box-shadow:var(--card-shadow); }
+  .card-title{ font-weight:600; font-size:0.95rem; letter-spacing:-0.01em; margin-bottom:1rem; }
+  .card-desc{ color:var(--text-dim); font-size:0.82rem; line-height:1.6; margin-top:-0.6rem; margin-bottom:1rem; }
+  .grid-2{ display:grid; grid-template-columns:1fr 1fr; gap:1.15rem; }
+
+  /* Dashboard hero + quick links */
+  .dash-hero{ position:relative; overflow:hidden; border:1px solid var(--border); border-radius:var(--radius); padding:2.1rem 1.9rem; margin-bottom:1.15rem;
+    background:
+      radial-gradient(120% 150% at 100% 0%, rgba(51,214,159,0.16), transparent 55%),
+      radial-gradient(90% 130% at 0% 120%, rgba(120,90,220,0.12), transparent 52%),
+      var(--surface);
+    box-shadow:var(--card-shadow); }
+  .dash-hero-eyebrow{ font-family:var(--mono); font-size:0.72rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-dim); margin-bottom:0.45rem; }
+  .dash-hero-name{ font-size:clamp(1.6rem, 4.5vw, 2.25rem); font-weight:700; letter-spacing:-0.035em; line-height:1.1; }
+  .dash-hero-role{ font-family:var(--mono); font-size:0.8rem; color:var(--accent); margin-top:0.5rem; display:inline-flex; align-items:center; gap:0.5rem; }
+  .dash-hero-role::before{ content:""; width:7px; height:7px; border-radius:50%; background:currentColor; box-shadow:0 0 0 3px color-mix(in srgb, currentColor 16%, transparent); }
+  .quicklinks{ display:grid; grid-template-columns:repeat(auto-fill, minmax(210px, 1fr)); gap:0.9rem; margin-bottom:1.15rem; }
+  .quicklink{ width:auto; text-align:left; background:var(--card-grad), var(--surface); border:1px solid var(--border); border-radius:14px; padding:1.1rem 1.15rem; display:flex; flex-direction:column; gap:0.28rem; cursor:pointer; color:var(--text); position:relative; box-shadow:var(--card-shadow); transition:border-color .15s, transform .15s; }
+  .quicklink:hover{ border-color:var(--accent-line); transform:translateY(-2px); }
+  .quicklink:active{ transform:translateY(0) scale(0.98); }
+  .quicklink-title{ font-weight:600; font-size:0.95rem; letter-spacing:-0.01em; }
+  .quicklink-sub{ font-size:0.78rem; color:var(--text-dim); }
+  .quicklink-arrow{ position:absolute; top:1.05rem; right:1.05rem; color:var(--accent); display:flex; }
+  .quicklink-arrow svg{ width:16px; height:16px; }
+
+  label{ display:block; font-size:0.78rem; font-weight:500; color:var(--text-dim); margin-bottom:0.35rem; }
+  input, select{ width:100%; padding:0.58rem 0.72rem; border:1px solid var(--border-strong); border-radius:10px; font-family:var(--font); font-size:0.87rem; margin-bottom:0.9rem; background:var(--bg); color:var(--text); transition:border-color .15s, box-shadow .15s; }
+  input::placeholder{ color:var(--text-faint); }
+  input:focus, select:focus{ outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-tint); }
+  input:disabled{ background:var(--surface-2); color:var(--text-faint); }
+  select{ appearance:none; background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238B8B93' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>"); background-repeat:no-repeat; background-position:right 0.72rem center; padding-right:2rem; }
+  .field-row{ display:grid; grid-template-columns:1fr 1fr; gap:0.9rem; }
+
+  button{ background:var(--accent); color:#06120C; border:none; border-radius:10px; padding:0.62rem 1.15rem; font-family:var(--font); font-size:0.85rem; font-weight:600; cursor:pointer; width:100%; transition:background .15s, opacity .15s, transform .1s ease; }
+  button:hover{ background:var(--accent-dim); }
+  button:active:not(:disabled){ transform:scale(0.98); }
+  button:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+  button:disabled{ opacity:0.55; cursor:default; }
+  button.secondary{ background:transparent; color:var(--text); border:1px solid var(--border-strong); }
+  button.secondary:hover{ background:var(--surface-2); border-color:var(--text-faint); }
+
+  .msg{ font-size:0.8rem; margin-top:0.7rem; padding:0.55rem 0.75rem; border-radius:10px; border:1px solid transparent; }
+  .msg.ok{ background:var(--green-soft); color:var(--green); border-color:rgba(51,214,159,0.28); }
+  .msg.err{ background:var(--red-soft); color:var(--red); border-color:rgba(242,109,109,0.28); }
+
+  /* Status pills (emitted by JS) */
+  .pill{ display:inline-flex; align-items:center; gap:0.4rem; font-family:var(--mono); font-size:0.68rem; font-weight:500; letter-spacing:0.03em; padding:0.26rem 0.6rem; border-radius:20px; border:1px solid var(--border-strong); color:var(--text-dim); white-space:nowrap; }
+  .pill.green{ color:var(--green); border-color:rgba(51,214,159,0.32); background:var(--green-soft); }
+  .pill.orange{ color:var(--orange); border-color:rgba(224,160,69,0.32); background:var(--orange-soft); }
+  .pill.red{ color:var(--red); border-color:rgba(242,109,109,0.32); background:var(--red-soft); }
+
+  /* Tables — ERP density */
+  table{ width:100%; border-collapse:collapse; font-size:0.85rem; }
+  th{ text-align:left; color:var(--text-faint); font-weight:600; font-size:0.68rem; letter-spacing:0.05em; text-transform:uppercase; padding:0.55rem 0.65rem; border-bottom:1px solid var(--border); white-space:nowrap; }
+  td{ padding:0.7rem 0.65rem; border-bottom:1px solid var(--border); color:var(--text); }
+  tbody tr{ transition:background .12s; }
+  tbody tr:hover{ background:var(--surface-2); }
+  tr:last-child td{ border-bottom:none; }
+  .empty-state{ text-align:center; padding:2.5rem 1rem; color:var(--text-faint); font-size:0.85rem; }
+  /* horizontal scroll for dense tables on narrow screens */
+  div[id$="table-wrap"]{ overflow-x:auto; -webkit-overflow-scrolling:touch; position:relative; }
+  /* Sticky first column + edge fade for the wide secondary-sales pivot table */
+  #secondary-sales-table-wrap table td:first-child, #secondary-sales-table-wrap table th:first-child{ position:sticky; left:0; background:var(--surface); z-index:1; }
+  #secondary-sales-table-wrap::after{ content:""; position:absolute; top:0; right:0; bottom:0; width:24px; background:linear-gradient(90deg, transparent, var(--surface)); pointer-events:none; }
+
+  /* Responsive card-view for dense ERP tables (catalog, inventory) below 640px */
+  @media(max-width:640px){
+    table.responsive-card thead{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); }
+    table.responsive-card, table.responsive-card tbody, table.responsive-card tr, table.responsive-card td{ display:block; width:100%; }
+    table.responsive-card tr{ background:var(--card-grad), var(--surface); border:1px solid var(--border); border-radius:12px; margin-bottom:0.7rem; padding:0.7rem 0.85rem; box-shadow:var(--card-shadow); }
+    table.responsive-card td{ border-bottom:none; padding:0.32rem 0; display:flex; justify-content:space-between; align-items:center; gap:0.6rem; }
+    table.responsive-card td::before{ content:attr(data-label); font-size:0.66rem; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-faint); flex-shrink:0; }
+    table.responsive-card td:first-child::before{ content:none; }
+    table.responsive-card td.row-actions{ display:block; }
+    table.responsive-card td.row-actions::before{ content:attr(data-label); display:block; margin-bottom:0.4rem; }
+  }
+
+  .product-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:1rem; }
+  .product-card{ border:1px solid var(--border); border-radius:14px; overflow:hidden; background:var(--surface); transition:border-color .15s, transform .15s; }
+  .product-card:hover{ border-color:var(--border-strong); transform:translateY(-2px); }
+  .product-card:active{ transform:translateY(0) scale(0.98); }
+  .product-card img{ width:100%; height:130px; object-fit:cover; display:block; background:var(--surface-2); }
+  .product-card-body{ padding:0.9rem; }
+  .product-card-title{ font-weight:600; font-size:0.88rem; letter-spacing:-0.01em; margin-bottom:0.35rem; }
+  .product-card-meta{ font-size:0.78rem; color:var(--text-dim); line-height:1.6; }
+  .product-card-meta strong{ color:var(--text); font-weight:600; }
+  .thumb{ width:44px; height:44px; object-fit:cover; border-radius:8px; background:var(--surface-2); vertical-align:middle; margin-right:0.55rem; }
+  .qty-input-inline{ width:74px; margin-bottom:0; padding:0.34rem 0.45rem; }
+  .price-input-inline{ width:94px; margin-bottom:0; padding:0.34rem 0.45rem; }
+  .row-actions{ display:flex; gap:0.4rem; }
+  .row-actions button{ width:auto; padding:0.35rem 0.65rem; font-size:0.75rem; }
+
+  /* AI Demand Analysis */
+  .analysis-head{ display:flex; align-items:center; gap:0.6rem; margin-bottom:0.6rem; flex-wrap:wrap; }
+  .analysis-head .card-title{ margin-bottom:0; }
+  .analysis-badge{ display:inline-flex; align-items:center; gap:0.35rem; font-family:var(--mono); font-size:0.64rem; font-weight:500; letter-spacing:0.04em; text-transform:uppercase; color:var(--accent); background:var(--accent-tint); border:1px solid var(--accent-line); padding:0.2rem 0.5rem; border-radius:7px; }
+  .analysis-badge::before{ content:""; width:5px; height:5px; border-radius:50%; background:var(--accent); }
+  #run-analysis-btn{ width:auto; }
+  .chart-panel{ background:var(--bg); border:1px solid var(--border); border-radius:14px; padding:1.2rem 1.2rem 0.8rem; margin-bottom:1.15rem; }
+  .chart-panel-label{ font-size:0.72rem; color:var(--text-faint); font-family:var(--mono); letter-spacing:0.03em; text-transform:uppercase; margin-bottom:0.8rem; }
+  .chart-holder{ position:relative; height:300px; }
+  .reco-card{ position:relative; background:var(--surface-2); border:1px solid var(--border-strong); border-left:3px solid var(--accent); border-radius:14px; padding:1.2rem 1.3rem; }
+  .reco-label{ display:flex; align-items:center; gap:0.45rem; font-size:0.7rem; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--accent); margin-bottom:0.65rem; }
+  .reco-label svg{ width:15px; height:15px; stroke-width:1.8; }
+  #recommendation-text{ color:var(--text); font-size:0.86rem; line-height:1.7; margin:0; }
+  #recommendation-text strong{ font-weight:600; }
+
+  /* Mobile scrim */
+  .scrim{ display:none; position:fixed; inset:0; background:rgba(0,0,0,0.58); backdrop-filter:blur(2px); z-index:50; }
+  .scrim.show{ display:block; }
+
+  /* ---------- Responsive ---------- */
+  @media(max-width:860px){
+    .app-shell.active{ display:block; height:auto; overflow:visible; }
+
+    .topbar{ display:flex; align-items:center; gap:0.75rem; position:sticky; top:0; z-index:40;
+      background:color-mix(in srgb, var(--bg) 85%, transparent); backdrop-filter:blur(12px); border-bottom:1px solid var(--border);
+      padding:0.7rem 0.9rem; padding-top:max(0.7rem, env(safe-area-inset-top)); }
+    .topbar-btn{ width:40px; height:40px; flex-shrink:0; border-radius:10px; background:transparent; border:1px solid var(--border); color:var(--text); display:flex; align-items:center; justify-content:center; padding:0; }
+    .topbar-btn svg{ width:20px; height:20px; stroke-width:1.8; }
+    .topbar-brand{ display:flex; align-items:center; gap:0.55rem; flex:1; min-width:0; font-weight:600; font-size:0.98rem; letter-spacing:-0.01em; }
+    .topbar-brand #topbar-title{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .topbar-mark{ width:30px; height:30px; flex-shrink:0; border-radius:9px; background:linear-gradient(160deg, var(--accent), var(--accent-dim)); display:flex; align-items:center; justify-content:center; }
+    .topbar-mark img{ width:72%; height:72%; object-fit:contain; }
+
+    .rail{ display:none; }
+
+    .subnav{ position:fixed; top:0; left:0; height:100vh; width:min(84vw, 300px); transform:translateX(-100%); transition:transform .25s ease; z-index:60; border-right:1px solid var(--border); padding-top:max(1.1rem, env(safe-area-inset-top)); box-shadow:0 0 40px rgba(0,0,0,0.5); }
+    .subnav.open{ transform:none; }
+
+    .main{ height:auto; overflow:visible; padding:1.25rem 1.1rem calc(1.5rem + env(safe-area-inset-bottom)); }
+    .section.active{ max-width:none; }
+    .field-row, .grid-2{ grid-template-columns:1fr; }
+    .page-title{ font-size:1.35rem; }
+    .dash-hero{ padding:1.6rem 1.35rem; }
+    .card{ padding:1.15rem; }
+    .quicklinks{ grid-template-columns:1fr 1fr; gap:0.7rem; }
+  }
+  @media(max-width:420px){
+    .quicklinks{ grid-template-columns:1fr; }
+  }
+  @media (prefers-reduced-motion:reduce){ *{transition:none !important; animation:none !important;} }
+</style>
+</head>
+<body>
+
+<div id="toast-stack" aria-live="polite"></div>
+
+<!-- ============ AUTH SCREEN ============ -->
+<div id="auth-screen">
+  <button class="theme-toggle-btn auth-theme-toggle" onclick="toggleTheme()" title="Toggle light/dark theme" aria-label="Toggle light/dark theme">
+    <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+    <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/></svg>
+  </button>
+  <div class="auth-brand"><img src="supplyos-logo.png" alt="SupplyOS logo"></div>
+  <div class="auth-eyebrow">SupplyOS</div>
+  <div class="auth-title">Sign in to continue</div>
+
+  <div class="auth-card">
+    <div class="auth-tabs">
+      <div class="auth-tab active" id="tab-signin" onclick="switchAuthTab('signin')">Sign In</div>
+      <div class="auth-tab" id="tab-signup" onclick="switchAuthTab('signup')">Sign Up</div>
+    </div>
+
+    <div id="signup-role-fields" style="display:none;">
+      <label>Full Name</label>
+      <input id="signup-name" placeholder="Priya Shah">
+      <div class="role-toggle">
+        <div class="role-option active" id="role-opt-supplier" onclick="pickSignupRole('supplier')">Supplier</div>
+        <div class="role-option" id="role-opt-vendor" onclick="pickSignupRole('vendor')">Vendor</div>
+      </div>
+      <div id="business-fields">
+        <label>Business Name</label>
+        <input id="signup-business-name" list="business-name-suggestions" placeholder="Start typing or pick a suggestion">
+        <datalist id="business-name-suggestions"></datalist>
+        <label>Location (with PIN code)</label>
+        <input id="signup-location" placeholder="Ahmedabad, Gujarat - 380001">
+        <div class="card-desc" id="id-assignment-note" style="margin-top:-0.6rem;">You'll be assigned a Supplier ID automatically after signing up.</div>
+      </div>
+    </div>
+
+    <label>Email</label>
+    <input id="auth-email" type="email" placeholder="you@example.com">
+    <label>Password</label>
+    <input id="auth-password" type="password" placeholder="••••••••">
+
+    <button id="auth-submit-btn" onclick="handleAuthSubmit()">Sign In</button>
+    <div id="auth-msg"></div>
+  </div>
+</div>
+
+<!-- ============ APP SHELL ============ -->
+<div class="app-shell" id="app-shell">
+
+  <!-- Mobile top bar -->
+  <header class="topbar">
+    <button class="topbar-btn" onclick="toggleNav()" aria-label="Open menu">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+    </button>
+    <div class="topbar-brand"><span class="topbar-mark"><img src="supplyos-glyph.png" alt=""></span><span id="topbar-title">SupplyOS</span></div>
+    <button class="topbar-btn theme-toggle-btn" onclick="toggleTheme()" aria-label="Toggle light/dark theme">
+      <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+      <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/></svg>
+    </button>
+    <button class="topbar-btn" onclick="signOut()" aria-label="Sign out">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M10 17l-5-5 5-5"/><path d="M5 12h11"/></svg>
+    </button>
+  </header>
+
+  <!-- Primary icon rail -->
+  <nav class="rail" aria-label="Primary">
+    <div class="brand" aria-hidden="true"><img src="supplyos-glyph.png" alt=""></div>
+
+    <div class="rail-group" id="rail-supplier" style="display:none;">
+      <button class="rail-btn" data-group-target="overview" onclick="railNavigate('dashboard')" title="Overview" aria-label="Overview">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>
+      </button>
+      <button class="rail-btn" data-group-target="inventory" onclick="railNavigate('catalog')" title="Inventory" aria-label="Inventory">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5V8Z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/></svg>
+      </button>
+      <button class="rail-btn" data-group-target="market" onclick="railNavigate('incoming-requests')" title="Marketplace" aria-label="Marketplace">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v9l-3 3H7l-3-3V4Z"/><path d="M4 13h4l1 2h6l1-2h4"/></svg>
+      </button>
+      <button class="rail-btn" data-group-target="analytics" onclick="railNavigate('secondary-sales')" title="Analytics" aria-label="Analytics">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V4"/><path d="M4 20h16"/><rect x="7" y="12" width="3" height="5"/><rect x="12" y="8" width="3" height="9"/><rect x="17" y="5" width="3" height="12"/></svg>
+      </button>
+    </div>
+
+    <div class="rail-group" id="rail-vendor" style="display:none;">
+      <button class="rail-btn" data-group-target="overview" onclick="railNavigate('dashboard')" title="Overview" aria-label="Overview">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>
+      </button>
+      <button class="rail-btn" data-group-target="source" onclick="railNavigate('products')" title="Sourcing" aria-label="Sourcing">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+      </button>
+      <button class="rail-btn" data-group-target="orders" onclick="railNavigate('incoming')" title="Orders" aria-label="Orders">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6h11v9H2z"/><path d="M13 9h4l4 3v3h-8z"/><circle cx="6" cy="18" r="1.6"/><circle cx="17" cy="18" r="1.6"/></svg>
+      </button>
+      <button class="rail-btn" data-group-target="analytics" onclick="railNavigate('secondary-sales')" title="Analytics" aria-label="Analytics">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V4"/><path d="M4 20h16"/><rect x="7" y="12" width="3" height="5"/><rect x="12" y="8" width="3" height="9"/><rect x="17" y="5" width="3" height="12"/></svg>
+      </button>
+    </div>
+
+    <div class="rail-spacer"></div>
+    <button class="rail-btn theme-toggle-btn" onclick="toggleTheme()" title="Toggle light/dark theme" aria-label="Toggle light/dark theme">
+      <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+      <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/></svg>
+    </button>
+    <button class="rail-btn" onclick="signOut()" title="Sign out" aria-label="Sign out">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M10 17l-5-5 5-5"/><path d="M5 12h11"/></svg>
+    </button>
+  </nav>
+
+  <!-- Secondary labeled nav (slide-in drawer on mobile) -->
+  <aside class="subnav">
+    <div class="subnav-title">SupplyOS</div>
+    <div class="role-badge" id="role-badge">—</div>
+
+    <div id="nav-supplier">
+      <div class="nav-group">
+        <div class="nav-group-label">Overview</div>
+        <div class="nav-item active" data-section="dashboard" data-group="overview">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="5" rx="1.5"/><rect x="13" y="10" width="8" height="11" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/></svg>
+          Dashboard
+        </div>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">Inventory</div>
+        <div class="nav-item" data-section="catalog" data-group="inventory">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5V8Z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/></svg>
+          Catalog
+        </div>
+        <div class="nav-item" data-section="dispatches" data-group="inventory">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6h11v9H2z"/><path d="M13 9h4l4 3v3h-8z"/><circle cx="6" cy="18" r="1.6"/><circle cx="17" cy="18" r="1.6"/></svg>
+          Dispatches
+        </div>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">Marketplace</div>
+        <div class="nav-item" data-section="incoming-requests" data-group="market">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v9l-3 3H7l-3-3V4Z"/><path d="M4 13h4l1 2h6l1-2h4"/></svg>
+          Incoming Requests
+        </div>
+        <div class="nav-item" data-section="lookup" data-group="market">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          Vendor Lookup
+        </div>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">Analytics</div>
+        <div class="nav-item" data-section="secondary-sales" data-group="analytics">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V4"/><path d="M4 20h16"/><rect x="7" y="12" width="3" height="5"/><rect x="12" y="8" width="3" height="9"/><rect x="17" y="5" width="3" height="12"/></svg>
+          Secondary Sales &amp; Analysis
+        </div>
+      </div>
+    </div>
+
+    <div id="nav-vendor">
+      <div class="nav-group">
+        <div class="nav-group-label">Overview</div>
+        <div class="nav-item active" data-section="dashboard" data-group="overview">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="5" rx="1.5"/><rect x="13" y="10" width="8" height="11" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/></svg>
+          Dashboard
+        </div>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">Sourcing</div>
+        <div class="nav-item" data-section="products" data-group="source">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+          Products
+        </div>
+        <div class="nav-item" data-section="request" data-group="source">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+          Post Request
+        </div>
+        <div class="nav-item" data-section="my-requests" data-group="source">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></svg>
+          My Requests
+        </div>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">Orders &amp; Stock</div>
+        <div class="nav-item" data-section="incoming" data-group="orders">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 21h16"/></svg>
+          Incoming Orders
+        </div>
+        <div class="nav-item" data-section="inventory" data-group="orders">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 3 7.5 12 12l9-4.5L12 3Z"/><path d="m3 12 9 4.5L21 12"/><path d="m3 16.5 9 4.5 9-4.5"/></svg>
+          Live Inventory
+        </div>
+        <div class="nav-item" data-section="returns" data-group="orders">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+          Returns
+        </div>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">Analytics</div>
+        <div class="nav-item" data-section="secondary-sales" data-group="analytics">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V4"/><path d="M4 20h16"/><rect x="7" y="12" width="3" height="5"/><rect x="12" y="8" width="3" height="9"/><rect x="17" y="5" width="3" height="12"/></svg>
+          Secondary Sales &amp; Analysis
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <div class="scrim" onclick="closeNav()"></div>
+
+  <div class="main">
+    <div class="section active" id="section-dashboard">
+      <div class="breadcrumb">SupplyOS</div>
+      <div class="page-header"><div class="page-title">Dashboard</div></div>
+      <div class="dash-hero">
+        <div class="dash-hero-eyebrow">Welcome back</div>
+        <div class="dash-hero-name" id="dash-hero-name">—</div>
+        <div class="dash-hero-role" id="dash-hero-role"></div>
+      </div>
+      <div class="quicklinks" id="dash-quicklinks"></div>
+      <div class="card">
+        <div class="card-title">Signed in as</div>
+        <div class="card-desc" id="dash-info" style="margin-bottom:0;">—</div>
+      </div>
+    </div>
+
+    <div class="section" id="section-catalog">
+      <div class="breadcrumb">SupplyOS / Supplier Portal / Inventory</div>
+      <div class="page-header"><div class="page-title">Catalog</div></div>
+      <div class="card">
+        <div class="card-title">Add / Update Product</div>
+        <div class="field-row">
+          <div><label>Product Code</label><input id="p-code" placeholder="SKU-101"></div>
+          <div><label>Product Name</label><input id="p-name" placeholder="Steel Widget 10mm"></div>
+        </div>
+        <div class="field-row">
+          <div><label>Category</label><input id="p-category" placeholder="Hardware"></div>
+          <div><label>Discount %</label><input id="p-discount" type="number" value="0"></div>
+        </div>
+        <label>Image URL</label>
+        <input id="p-image" placeholder="https://example.com/product.jpg">
+        <div class="field-row">
+          <div><label>Available Qty</label><input id="p-qty" type="number" value="0"></div>
+          <div><label>Bulk Order Price (₹)</label><input id="p-bulk-price" type="number" step="0.01" placeholder="1250.00"></div>
+        </div>
+        <div class="field-row">
+          <div><label>Available From</label><input id="p-available-from" type="date"></div>
+          <div><label>Delivery Time (days)</label><input id="p-delivery-days" type="number" placeholder="5"></div>
+        </div>
+        <button onclick="addProduct()">Save Product</button>
+        <div id="p-msg"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Current Catalog</div>
+        <div id="supplier-catalog-table-wrap"><div class="skel-loading"></div></div>
+      </div>
+    </div>
+
+    <div class="section" id="section-dispatches">
+      <div class="breadcrumb">SupplyOS / Supplier Portal / Inventory</div>
+      <div class="page-header"><div class="page-title">Dispatches</div></div>
+      <div class="card">
+        <div class="card-title">Log a Dispatch</div>
+        <div class="field-row">
+          <div><label>Vendor ID</label><input id="d-vendor" placeholder="VND-883"></div>
+          <div><label>Product Code</label><input id="d-code" placeholder="SKU-001"></div>
+        </div>
+        <div class="field-row">
+          <div><label>Quantity Supplied</label><input id="d-qty" type="number" placeholder="500"></div>
+          <div><label>Restock Lead Time (days)</label><input id="d-lead" type="number" placeholder="7"></div>
+        </div>
+        <button onclick="logDispatch()">Log Dispatch</button>
+        <div id="d-msg"></div>
+      </div>
+    </div>
+
+    <div class="section" id="section-lookup">
+      <div class="breadcrumb">SupplyOS / Supplier Portal / Marketplace</div>
+      <div class="page-header"><div class="page-title">Vendor Lookup</div></div>
+      <div class="card">
+        <div class="card-title">Check any vendor's live inventory</div>
+        <div class="field-row">
+          <div><label>Vendor ID</label><input id="lookup-vendor" placeholder="VND-883"></div>
+          <div style="display:flex; align-items:flex-end;"><button onclick="lookupInventory()">Look Up</button></div>
+        </div>
+      </div>
+      <div class="card"><div id="lookup-table-wrap"><div class="empty-state">Enter a vendor ID above.</div></div></div>
+    </div>
+
+    <div class="section" id="section-products">
+      <div class="breadcrumb">SupplyOS / Vendor Portal / Sourcing</div>
+      <div class="page-header">
+        <div class="page-title">Products</div>
+        <span class="pill green" id="catalog-updated-pill">Loading…</span>
+      </div>
+      <div class="card">
+        <div id="vendor-products-wrap"><div class="skel-loading"></div></div>
+      </div>
+    </div>
+
+    <div class="section" id="section-incoming">
+      <div class="breadcrumb">SupplyOS / Vendor Portal / Orders &amp; Stock</div>
+      <div class="page-header"><div class="page-title">Incoming Orders</div></div>
+      <div class="card">
+        <div class="card-desc" style="margin-bottom:1rem;">Expected arrival dates are estimates based on dispatch date + delivery lead time, not confirmed delivery tracking.</div>
+        <div id="incoming-orders-wrap"><div class="skel-loading"></div></div>
+      </div>
+    </div>
+
+    <div class="section" id="section-inventory">
+      <div class="breadcrumb">SupplyOS / Vendor Portal / Orders &amp; Stock</div>
+      <div class="page-header"><div class="page-title">Live Inventory</div></div>
+      <div class="card">
+        <label>Viewing inventory with</label>
+        <select id="inventory-supplier-select" onchange="onInventorySupplierChange()"><option value="">Loading suppliers…</option></select>
+      </div>
+      <div class="card">
+        <div class="card-title">Supplied − Sold − Returned</div>
+        <div id="inventory-table-wrap"><div class="skel-loading"></div></div>
+      </div>
+    </div>
+
+    <div class="section" id="section-returns">
+      <div class="breadcrumb">SupplyOS / Vendor Portal / Orders &amp; Stock</div>
+      <div class="page-header"><div class="page-title">Returns</div></div>
+      <div class="card">
+        <div class="card-title">Log a Return</div>
+        <label>Supplier</label>
+        <select id="returns-supplier-select"><option value="">Loading suppliers…</option></select>
+        <label>Product Code</label><input id="r-code" placeholder="SKU-001">
+        <div class="field-row">
+          <div><label>Quantity Returned</label><input id="r-qty" type="number" placeholder="5"></div>
+          <div><label>Reason</label><input id="r-reason" placeholder="Damaged in transit"></div>
+        </div>
+        <button onclick="logReturn()">Log Return</button>
+        <div id="r-msg"></div>
+      </div>
+    </div>
+
+    <div class="section" id="section-request">
+      <div class="breadcrumb">SupplyOS / Vendor Portal / Sourcing</div>
+      <div class="page-header"><div class="page-title">Post an Order Request</div></div>
+      <div class="card">
+        <div class="card-desc" style="margin-bottom:1rem;">This goes out to every supplier on SupplyOS. Whoever accepts first is assigned as your supplier for this order.</div>
+        <label>What do you need?</label>
+        <input id="req-description" placeholder="Stainless steel mixer grinders, 750W or similar">
+        <div class="field-row">
+          <div><label>Quantity</label><input id="req-qty" type="number" placeholder="50"></div>
+          <div><label>Target Price (₹, optional)</label><input id="req-price" type="number" step="0.01" placeholder="2200.00"></div>
+        </div>
+        <button onclick="postOrderRequest()">Post Request</button>
+        <div id="req-msg"></div>
+      </div>
+    </div>
+
+    <div class="section" id="section-my-requests">
+      <div class="breadcrumb">SupplyOS / Vendor Portal / Sourcing</div>
+      <div class="page-header"><div class="page-title">My Requests</div></div>
+      <div class="card">
+        <div id="my-requests-wrap"><div class="skel-loading"></div></div>
+      </div>
+    </div>
+
+    <div class="section" id="section-incoming-requests">
+      <div class="breadcrumb">SupplyOS / Supplier Portal / Marketplace</div>
+      <div class="page-header"><div class="page-title">Incoming Requests</div></div>
+      <div class="card">
+        <div class="card-desc" style="margin-bottom:1rem;">First to accept wins the order. Pick which of your own catalog items you'll fulfill it with.</div>
+        <div id="incoming-requests-wrap"><div class="skel-loading"></div></div>
+      </div>
+    </div>
+
+    <div class="section" id="section-secondary-sales">
+      <div class="breadcrumb">SupplyOS / Analytics</div>
+      <div class="page-header"><div class="page-title">Secondary Sales &amp; Analysis</div></div>
+      <div class="card">
+        <div class="card-title">Monthly Secondary Sales (units sold to end customers)</div>
+        <div class="card-desc">Shared network view — every vendor and supplier sees the same consolidated figures.</div>
+        <div id="secondary-sales-table-wrap"></div>
+      </div>
+
+      <div class="card">
+        <div class="analysis-head">
+          <div class="card-title">AI Demand Analysis</div>
+          <span class="analysis-badge">Powered by AI</span>
+        </div>
+        <div class="card-desc">Analyzes recent sell-through velocity to flag which products are moving fastest and which need restocking soon.</div>
+        <button id="run-analysis-btn" onclick="runAIAnalysis()">Run AI Analysis</button>
+        <div id="analysis-results" style="margin-top:1.4rem; display:none;">
+          <div class="chart-panel">
+            <div class="chart-panel-label">Total units sold · last 4 months</div>
+            <div class="chart-holder"><canvas id="sales-chart"></canvas></div>
+          </div>
+          <div class="reco-card">
+            <div class="reco-label">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 21h4"/><path d="M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.2 1 2.5h6c0-1.3.3-1.8 1-2.5A6 6 0 0 0 12 3Z"/></svg>
+              Recommendation
+            </div>
+            <div id="recommendation-text" class="card-desc" style="margin-bottom:0;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ============================================================
+  //  ⚠️  SECURITY — PLEASE READ  ⚠️
+  //  The URL and key below are only BASE64-obfuscated so they don't show up
+  //  as plain strings in the Elements / Sources panel. THIS IS NOT SECURITY:
+  //  the Network tab still reveals both on every request. Obfuscation cannot
+  //  hide credentials in a static site — it only hides them from a casual
+  //  glance at the source.
+  //
+  //  THE REAL FIX (do all three in your Supabase dashboard):
+  //    1. The key here is a SERVICE_ROLE key — full admin, bypasses all
+  //       database security. ROTATE IT NOW (Settings → API). Anyone with this
+  //       public link can currently read/write/delete your entire database.
+  //    2. Replace it with the PUBLISHABLE (anon) key — that one is designed
+  //       to be public and is safe to ship in the browser.
+  //    3. Enable Row Level Security (RLS) + policies on every table. That is
+  //       what actually protects your data once the anon key is public.
+  // ============================================================
+  const _sbcfg = [
+  // USE your own code
+  ];
+  const SUPABASE_URL = atob(_sbcfg[0]);
+  const SUPABASE_ANON_KEY = atob(_sbcfg[1]);
+
+  // ---------- Theme toggle (light/dark) ----------
+  function applyTheme(theme){
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("supplyos-theme", theme);
+    if(salesChartInstance) renderSalesChart(salesChartInstance.data.labels, salesChartInstance.data.datasets[0].data);
+  }
+  function toggleTheme(){
+    const current = document.documentElement.getAttribute("data-theme") || "dark";
+    applyTheme(current === "light" ? "dark" : "light");
+  }
+
+  // ---------- Toast / confirm dialog (replaces native alert()/confirm()) ----------
+  function showToast(text, type){
+    const stack = document.getElementById("toast-stack");
+    if(!stack) return;
+    const el = document.createElement("div");
+    el.className = "toast " + (type === "err" ? "err" : "ok");
+    el.textContent = text;
+    stack.appendChild(el);
+    setTimeout(() => {
+      el.classList.add("leaving");
+      setTimeout(() => el.remove(), 220);
+    }, 2800);
+  }
+
+  function confirmDialog(message){
+    return new Promise(resolve => {
+      const scrim = document.createElement("div");
+      scrim.className = "confirm-scrim";
+      scrim.innerHTML = `<div class="confirm-card"><div class="confirm-text"></div>
+        <div class="confirm-actions"><button class="secondary" data-a="cancel">Cancel</button><button data-a="ok">Confirm</button></div></div>`;
+      scrim.querySelector(".confirm-text").textContent = message;
+      document.body.appendChild(scrim);
+      requestAnimationFrame(() => scrim.classList.add("show"));
+      scrim.addEventListener("click", e => {
+        let a = e.target.getAttribute("data-a");
+        if(e.target === scrim) a = "cancel";
+        if(!a) return;
+        scrim.classList.remove("show");
+        setTimeout(() => scrim.remove(), 180);
+        resolve(a === "ok");
+      });
+    });
+  }
+
+  const SAMPLE_BUSINESS_NAMES = [
+    "Patel Hardware Traders", "Sharma Textiles Pvt Ltd", "Mumbai Electricals Co.",
+    "Delhi Steel Works", "Gupta Trading Company", "Shree Ganesh Enterprises",
+    "Bansal Home Appliances", "Kumar Brothers Distributors", "Rajesh Exports",
+    "Singh Wholesale Mart", "National Hardware Supply", "Verma Electronics",
+    "Agarwal Sons Traders", "Bharat Industrial Supplies", "Chennai Trading Corp",
+    "Kolkata Metal Works", "Bangalore Tech Distributors", "Jain Brothers & Co.",
+    "Modern Appliances Hub", "Krishna Enterprises", "Om Sai Traders",
+    "Reliance General Store", "Ashok Hardware Mart", "Gopal Wholesale Traders",
+    "Pioneer Electricals", "Sunrise Trading Co.", "Metro Home Solutions",
+    "Vinod Steel Traders", "Lakshmi Distributors", "Global Appliance House",
+    "Prime Hardware Co.", "Sethi Brothers Enterprises", "Anand Traders",
+    "Capital Electricals", "Deep Enterprises", "Family Mart Wholesale",
+    "Golden Star Traders", "Hindustan Hardware Supply", "Indus Valley Distributors",
+    "Janta Electricals", "Kartik Trading Co.", "Laxmi Narayan Enterprises",
+    "Mahalaxmi Traders", "New India Hardware", "Om Traders & Distributors",
+    "Punjab Electricals Co.", "Quality Home Appliances", "Rathi Steel Traders",
+    "Standard Wholesale Mart", "Trishul Enterprises",
+  ];
+
+  const datalist = document.getElementById("business-name-suggestions");
+  datalist.innerHTML = SAMPLE_BUSINESS_NAMES.map(n => `<option value="${n}"></option>`).join("");
+
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  let currentRole = null;
+  let currentVendorId = null;
+  let currentSupplierId = null;
+  let currentName = null;
+  let currentBusinessName = null;
+  let selectedInventorySupplier = null;
+  let signupRole = "supplier";
+  let authMode = "signin";
+
+  // ---------- Auth tab / role toggle UI ----------
+  function switchAuthTab(mode){
+    authMode = mode;
+    document.getElementById("tab-signin").classList.toggle("active", mode === "signin");
+    document.getElementById("tab-signup").classList.toggle("active", mode === "signup");
+    document.getElementById("signup-role-fields").style.display = mode === "signup" ? "block" : "none";
+    document.getElementById("auth-submit-btn").textContent = mode === "signin" ? "Sign In" : "Sign Up";
+  }
+
+  function pickSignupRole(role){
+    signupRole = role;
+    document.getElementById("role-opt-supplier").classList.toggle("active", role === "supplier");
+    document.getElementById("role-opt-vendor").classList.toggle("active", role === "vendor");
+    document.getElementById("id-assignment-note").textContent =
+      role === "vendor" ? "You'll be assigned a Vendor ID automatically after signing up."
+                         : "You'll be assigned a Supplier ID automatically after signing up.";
+  }
+
+  function showAuthMsg(text, ok){
+    document.getElementById("auth-msg").innerHTML = `<div class="msg ${ok ? 'ok' : 'err'}">${text}</div>`;
+  }
+
+  async function handleAuthSubmit(){
+    const email = document.getElementById("auth-email").value.trim();
+    const password = document.getElementById("auth-password").value;
+
+    if(authMode === "signin"){
+      const { error } = await sb.auth.signInWithPassword({ email, password });
+      if(error) return showAuthMsg(error.message, false);
+    } else {
+      const name = document.getElementById("signup-name").value.trim();
+      if(!name) return showAuthMsg("Name is required", false);
+
+      const businessName = document.getElementById("signup-business-name").value.trim();
+      const location = document.getElementById("signup-location").value.trim();
+      if(!businessName) return showAuthMsg("Business name is required", false);
+      if(!location) return showAuthMsg("Location is required", false);
+
+      const metadata = { role: signupRole, name, business_name: businessName, location };
+
+      const { error } = await sb.auth.signUp({ email, password, options: { data: metadata } });
+      if(error) return showAuthMsg(error.message, false);
+      showAuthMsg("Account created — signing you in…", true);
+    }
+    await enterApp();
+  }
+
+  async function signOut(){
+    await sb.auth.signOut();
+    location.reload();
+  }
+
+  // ---------- App entry ----------
+  async function enterApp(){
+    const { data: { session } } = await sb.auth.getSession();
+    if(!session) return; // stay on auth screen
+
+    let { data: profile, error } = await sb.from("profiles").select("role, vendor_id, supplier_id, name, business_name").eq("id", session.user.id).single();
+
+    if(error || !profile){
+      // Self-heal: the trigger somehow didn't create a profile - build one
+      // now from the same signup metadata, instead of showing a dead end.
+      const meta = session.user.user_metadata || {};
+      const role = meta.role === "vendor" ? "vendor" : "supplier";
+      const name = meta.name || session.user.email;
+
+      let vendorId = null, supplierId = null;
+      if(role === "vendor"){
+        const { data: genId, error: genErr } = await sb.rpc("generate_vendor_id");
+        if(genErr) return showAuthMsg("Could not recover your profile: " + genErr.message, false);
+        vendorId = genId;
+      } else {
+        const { data: genId, error: genErr } = await sb.rpc("generate_supplier_id");
+        if(genErr) return showAuthMsg("Could not recover your profile: " + genErr.message, false);
+        supplierId = genId;
+      }
+
+      const { data: healed, error: healErr } = await sb.from("profiles")
+        .insert({
+          id: session.user.id, name, role, vendor_id: vendorId, supplier_id: supplierId,
+          business_name: meta.business_name || null,
+          location: meta.location || null,
+        })
+        .select("role, vendor_id, supplier_id, name, business_name")
+        .single();
+
+      if(healErr) return showAuthMsg("Could not recover your profile: " + healErr.message, false);
+      profile = healed;
+    }
+
+    currentRole = profile.role;
+    currentVendorId = profile.vendor_id;
+    currentSupplierId = profile.supplier_id;
+    currentName = profile.name || session.user.email;
+    currentBusinessName = profile.business_name || currentName;
+
+    document.getElementById("auth-screen").style.display = "none";
+    const shell = document.getElementById("app-shell");
+    shell.classList.add("active");
+    shell.classList.add(currentRole === "supplier" ? "role-supplier" : "role-vendor");
+    document.getElementById("nav-supplier").style.display = currentRole === "supplier" ? "block" : "none";
+    document.getElementById("nav-vendor").style.display = currentRole === "vendor" ? "block" : "none";
+
+    const badge = document.getElementById("role-badge");
+    badge.classList.add(currentRole === "supplier" ? "role-supplier" : "role-vendor");
+    badge.innerHTML = currentRole === "supplier"
+      ? `Role: Supplier<span class="email">${currentName} — <strong>${currentSupplierId}</strong></span>`
+      : `Role: Vendor<span class="email">${currentName} — <strong>${currentVendorId}</strong></span>`;
+
+    document.getElementById("dash-info").innerHTML = currentRole === "supplier"
+      ? `${currentName} (${session.user.email}) — Supplier<br><br>Your Supplier ID is <strong class="mono">${currentSupplierId}</strong>.`
+      : `${currentName} (${session.user.email}) — Vendor<br><br>Your Vendor ID is <strong class="mono">${currentVendorId}</strong> — this is how suppliers and the system identify you. No need to remember it for login, just for reference.`;
+
+    if(currentRole === "vendor") loadVendorSupplierSelector();
+    if(currentRole === "supplier") loadSupplierCatalog();
+
+    const navRoot = currentRole === "supplier" ? document.getElementById("nav-supplier") : document.getElementById("nav-vendor");
+    navRoot.querySelectorAll(".nav-item").forEach(item => {
+      item.addEventListener("click", () => {
+        navRoot.querySelectorAll(".nav-item").forEach(n => n.classList.remove("active"));
+        document.querySelectorAll(".section").forEach(s => s.classList.remove("active"));
+        item.classList.add("active");
+        document.getElementById("section-" + item.dataset.section).classList.add("active");
+        if(item.dataset.section === "inventory") loadInventory();
+        if(item.dataset.section === "products") loadVendorProducts();
+        if(item.dataset.section === "catalog") loadSupplierCatalog();
+        if(item.dataset.section === "my-requests") loadMyRequests();
+        if(item.dataset.section === "incoming-requests") loadIncomingRequests();
+        if(item.dataset.section === "secondary-sales") renderSecondarySalesTable();
+      });
+    });
+  }
+
+  function showMsg(id, text, ok){
+    document.getElementById(id).innerHTML = `<div class="msg ${ok ? 'ok' : 'err'}">${text}</div>`;
+  }
+
+  // ---------- Supplier actions ----------
+  async function addProduct(){
+    const { error } = await sb.from("product_master").upsert({
+      supplier_id: currentSupplierId,
+      product_code: document.getElementById("p-code").value.trim(),
+      product_name: document.getElementById("p-name").value.trim(),
+      category: document.getElementById("p-category").value.trim(),
+      standard_discount_percentage: parseFloat(document.getElementById("p-discount").value || "0"),
+      image_url: document.getElementById("p-image").value.trim() || null,
+      available_qty: parseInt(document.getElementById("p-qty").value || "0"),
+      bulk_price: document.getElementById("p-bulk-price").value ? parseFloat(document.getElementById("p-bulk-price").value) : null,
+      available_from: document.getElementById("p-available-from").value || new Date().toISOString().slice(0,10),
+      delivery_days: document.getElementById("p-delivery-days").value ? parseInt(document.getElementById("p-delivery-days").value) : null,
+    }, { onConflict: "supplier_id,product_code" });
+    showMsg("p-msg", error ? error.message : "Product saved", !error);
+    if(!error){
+      ["p-code","p-name","p-category","p-image","p-bulk-price","p-available-from","p-delivery-days"].forEach(id => document.getElementById(id).value = "");
+      document.getElementById("p-discount").value = "0";
+      document.getElementById("p-qty").value = "0";
+      loadSupplierCatalog();
+    }
+  }
+
+  async function loadSupplierCatalog(){
+    const wrap = document.getElementById("supplier-catalog-table-wrap");
+    const { data, error } = await sb.from("product_master").select("*").eq("supplier_id", currentSupplierId).order("product_code");
+    if(error) return wrap.innerHTML = `<div class="empty-state">${error.message}</div>`;
+    if(!data || data.length === 0) return wrap.innerHTML = `<div class="empty-state">No products yet — add one above.</div>`;
+
+    wrap.innerHTML = `
+      <table class="responsive-card"><thead><tr>
+        <th>Product</th><th>Qty</th><th>Bulk Price</th><th>Delivery</th><th>Actions</th>
+      </tr></thead>
+      <tbody>${data.map(p => `
+        <tr>
+          <td data-label="Product">
+            <img class="thumb" src="${p.image_url || 'https://picsum.photos/seed/' + p.product_code + '/80/80'}" alt="">
+            ${p.product_name} <span class="mono" style="color:var(--text-dim); font-size:0.75rem;">${p.product_code}</span>
+          </td>
+          <td data-label="Qty"><input class="qty-input-inline" type="number" id="edit-qty-${p.product_code}" value="${p.available_qty ?? 0}"></td>
+          <td data-label="Bulk Price"><input class="price-input-inline" type="number" step="0.01" id="edit-price-${p.product_code}" value="${p.bulk_price ?? ''}"></td>
+          <td data-label="Delivery" class="mono">${p.delivery_days ?? '—'}d</td>
+          <td data-label="Actions" class="row-actions">
+            <button onclick="saveInlineEdit('${p.product_code}')">Save</button>
+            <button class="secondary" onclick="deleteProduct('${p.product_code}')">Delete</button>
+          </td>
+        </tr>`).join("")}
+      </tbody></table>`;
+  }
+
+  async function saveInlineEdit(code){
+    const qty = parseInt(document.getElementById(`edit-qty-${code}`).value || "0");
+    const priceRaw = document.getElementById(`edit-price-${code}`).value;
+    const { error } = await sb.from("product_master")
+      .update({ available_qty: qty, bulk_price: priceRaw ? parseFloat(priceRaw) : null })
+      .eq("supplier_id", currentSupplierId).eq("product_code", code);
+    if(error) showToast("Failed to update: " + error.message, "err");
+    else { showToast(`${code} updated`, "ok"); loadSupplierCatalog(); }
+  }
+
+  async function deleteProduct(code){
+    if(!(await confirmDialog(`Remove ${code} from the catalog?`))) return;
+    const { error } = await sb.from("product_master").delete()
+      .eq("supplier_id", currentSupplierId).eq("product_code", code);
+    if(error) showToast("Failed to delete: " + error.message, "err");
+    else { showToast(`${code} removed`, "ok"); loadSupplierCatalog(); }
+  }
+
+  async function loadVendorProducts(){
+    const wrap = document.getElementById("vendor-products-wrap");
+    const { data, error } = await sb.from("product_master").select("*").order("product_code");
+    if(error) return wrap.innerHTML = `<div class="empty-state">${error.message}</div>`;
+    if(!data || data.length === 0) return wrap.innerHTML = `<div class="empty-state">No products in the catalog yet.</div>`;
+
+    const { data: suppliers } = await sb.from("profiles").select("supplier_id, name, business_name").eq("role", "supplier");
+    const supplierMap = {};
+    (suppliers || []).forEach(s => supplierMap[s.supplier_id] = s.business_name || s.name || s.supplier_id);
+
+    const latest = data.reduce((max, p) => p.updated_at > max ? p.updated_at : max, data[0].updated_at);
+    document.getElementById("catalog-updated-pill").textContent =
+      "Catalog updated " + new Date(latest).toLocaleString();
+
+    const today = new Date().toISOString().slice(0,10);
+    wrap.innerHTML = `<div class="product-grid">${data.map(p => {
+      const isAvailable = !p.available_from || p.available_from <= today;
+      const supplierName = supplierMap[p.supplier_id] || p.supplier_id;
+      return `
+        <div class="product-card">
+          <img src="${p.image_url || 'https://picsum.photos/seed/' + p.product_code + '/400/300'}" alt="${p.product_name}">
+          <div class="product-card-body">
+            <div class="product-card-title">${p.product_name}</div>
+            <div class="product-card-meta">
+              Sold by <strong>${supplierName}</strong><br>
+              ${p.category ?? "—"} · <span class="mono">${p.product_code}</span><br>
+              Qty available: <strong>${p.available_qty ?? 0}</strong><br>
+              Bulk price: <strong>${p.bulk_price != null ? "₹" + p.bulk_price : "—"}</strong><br>
+              Delivery: ${p.delivery_days ?? "—"} days<br>
+              ${isAvailable ? '<span style="color:var(--green);">Available now</span>' : `Available from ${p.available_from}`}
+            </div>
+            <button class="secondary" style="margin-top:0.6rem;" onclick="prefillOrderRequest('${p.product_name.replace(/'/g,"\\'")}', '${p.product_code}')">Request this</button>
+          </div>
+        </div>`;
+    }).join("")}</div>`;
+  }
+
+  // ---------- Order Requests (marketplace) ----------
+  async function postOrderRequest(){
+    const { error } = await sb.from("order_requests").insert({
+      vendor_id: currentVendorId,
+      product_description: document.getElementById("req-description").value.trim(),
+      quantity: parseInt(document.getElementById("req-qty").value),
+      target_price: document.getElementById("req-price").value ? parseFloat(document.getElementById("req-price").value) : null,
+    });
+    showMsg("req-msg", error ? error.message : "Request posted — every supplier can now see it.", !error);
+    if(!error){
+      document.getElementById("req-description").value = "";
+      document.getElementById("req-qty").value = "";
+      document.getElementById("req-price").value = "";
+    }
+  }
+
+  async function loadMyRequests(){
+    const wrap = document.getElementById("my-requests-wrap");
+    const { data, error } = await sb.from("order_requests").select("*").eq("vendor_id", currentVendorId).order("created_at", { ascending: false });
+    if(error) return wrap.innerHTML = `<div class="empty-state">${error.message}</div>`;
+    if(!data || data.length === 0) return wrap.innerHTML = `<div class="empty-state">No requests posted yet.</div>`;
+
+    const supplierIds = [...new Set(data.filter(r => r.accepted_supplier_id).map(r => r.accepted_supplier_id))];
+    let nameMap = {};
+    if(supplierIds.length){
+      const { data: profiles } = await sb.from("profiles").select("supplier_id, name, business_name").in("supplier_id", supplierIds);
+      (profiles || []).forEach(p => nameMap[p.supplier_id] = p.business_name || p.name || p.supplier_id);
+    }
+
+    wrap.innerHTML = data.map(r => {
+      let statusHtml;
+      if(r.status === "open"){
+        statusHtml = `<span class="pill orange">Waiting for a supplier</span>`;
+      } else if(r.status === "accepted"){
+        const eta = new Date(r.accepted_at);
+        eta.setDate(eta.getDate() + (r.accepted_lead_time_days || 0));
+        statusHtml = `<span class="pill green">Accepted by ${nameMap[r.accepted_supplier_id] || r.accepted_supplier_id}</span>
+          <div class="card-desc" style="margin-top:0.5rem; margin-bottom:0;">
+            Confirmed at ₹${r.accepted_price} · expected in ${r.accepted_lead_time_days} days (around ${eta.toLocaleDateString()})
+          </div>`;
+      } else {
+        statusHtml = `<span class="pill red">Cancelled</span>`;
+      }
+      return `
+        <div class="card" style="margin-bottom:0.75rem;">
+          <div class="page-header" style="margin-bottom:0.5rem;">
+            <div style="font-weight:600;">${r.product_description}</div>
+            ${statusHtml}
+          </div>
+          <div class="card-desc" style="margin-bottom:0;">Qty ${r.quantity}${r.target_price ? ` · target ₹${r.target_price}` : ""} · posted ${new Date(r.created_at).toLocaleString()}</div>
+        </div>`;
+    }).join("");
+  }
+
+  async function loadIncomingRequests(){
+    const wrap = document.getElementById("incoming-requests-wrap");
+    const { data, error } = await sb.from("order_requests").select("*").order("created_at", { ascending: false });
+    if(error) return wrap.innerHTML = `<div class="empty-state">${error.message}</div>`;
+    if(!data || data.length === 0) return wrap.innerHTML = `<div class="empty-state">No requests posted yet.</div>`;
+
+    const { data: myProducts } = await sb.from("product_master").select("product_code, product_name, delivery_days").eq("supplier_id", currentSupplierId);
+    const productOptions = (myProducts || []).map(p => `<option value="${p.product_code}" data-delivery="${p.delivery_days ?? ''}">${p.product_name} (${p.product_code})</option>`).join("");
+
+    wrap.innerHTML = data.map(r => {
+      if(r.status === "accepted"){
+        const wonByMe = r.accepted_supplier_id === currentSupplierId;
+        return `
+          <div class="card" style="margin-bottom:0.75rem;">
+            <div class="page-header" style="margin-bottom:0.5rem;">
+              <div style="font-weight:600;">${r.product_description}</div>
+              <span class="pill ${wonByMe ? 'green' : 'red'}">${wonByMe ? 'You won this' : 'Claimed by another supplier'}</span>
+            </div>
+            <div class="card-desc" style="margin-bottom:0;">Qty ${r.quantity} · from vendor ${r.vendor_id}</div>
+          </div>`;
+      }
+      return `
+        <div class="card" style="margin-bottom:0.75rem;">
+          <div class="page-header" style="margin-bottom:0.5rem;">
+            <div style="font-weight:600;">${r.product_description}</div>
+            <span class="pill orange">Open</span>
+          </div>
+          <div class="card-desc">Qty ${r.quantity}${r.target_price ? ` · target ₹${r.target_price}` : ""} · from vendor ${r.vendor_id}</div>
+          <div class="field-row">
+            <div>
+              <label>Fulfill with</label>
+              <select id="accept-product-${r.id}" onchange="onAcceptProductChange('${r.id}')">
+                <option value="">Choose your product…</option>
+                ${productOptions}
+              </select>
+            </div>
+            <div><label>Your Price (₹)</label><input id="accept-price-${r.id}" type="number" step="0.01" value="${r.target_price ?? ''}"></div>
+          </div>
+          <div class="field-row">
+            <div><label>Delivery Time (days)</label><input id="accept-lead-${r.id}" type="number" placeholder="5"></div>
+            <div style="display:flex; align-items:flex-end;"><button onclick="acceptRequest('${r.id}')">Accept — Fastest Finger Wins</button></div>
+          </div>
+          <div id="accept-msg-${r.id}"></div>
+        </div>`;
+    }).join("");
+  }
+
+  function onAcceptProductChange(requestId){
+    const select = document.getElementById(`accept-product-${requestId}`);
+    const delivery = select.options[select.selectedIndex]?.dataset.delivery;
+    if(delivery) document.getElementById(`accept-lead-${requestId}`).value = delivery;
+  }
+
+  async function acceptRequest(requestId){
+    const productCode = document.getElementById(`accept-product-${requestId}`).value;
+    const price = parseFloat(document.getElementById(`accept-price-${requestId}`).value);
+    const leadTime = parseInt(document.getElementById(`accept-lead-${requestId}`).value);
+    if(!productCode) return showMsg(`accept-msg-${requestId}`, "Pick which product you'll fulfill this with", false);
+
+    const { data: won, error } = await sb.rpc("accept_order_request", {
+      p_order_id: requestId, p_fulfilling_product_code: productCode,
+      p_final_price: price, p_lead_time_days: leadTime,
+    });
+
+    if(error) return showMsg(`accept-msg-${requestId}`, error.message, false);
+    if(won === false) return showMsg(`accept-msg-${requestId}`, "Too slow — another supplier already claimed this.", false);
+    showMsg(`accept-msg-${requestId}`, "You got it! Dispatch logged automatically.", true);
+    loadIncomingRequests();
+    loadSupplierCatalog();
+  }
+
+  async function logDispatch(){
+    const { error } = await sb.rpc("log_dispatch", {
+      p_vendor_id: document.getElementById("d-vendor").value.trim(),
+      p_product_code: document.getElementById("d-code").value.trim(),
+      p_qty: parseInt(document.getElementById("d-qty").value),
+      p_lead_time: parseInt(document.getElementById("d-lead").value),
+    });
+    showMsg("d-msg", error ? error.message : "Dispatch logged", !error);
+    if(!error) loadSupplierCatalog(); // catalog qty just decreased - refresh it
+  }
+
+  async function lookupInventory(){
+    const vendorId = document.getElementById("lookup-vendor").value.trim();
+    const wrap = document.getElementById("lookup-table-wrap");
+    if(!vendorId) return;
+    wrap.innerHTML = `<div class="skel-loading"></div>`;
+    const { data, error } = await sb.rpc("get_live_inventory", { p_vendor_id: vendorId, p_supplier_id: currentSupplierId });
+    renderInventoryTable(wrap, data, error, vendorId);
+  }
+
+  // ---------- Vendor actions ----------
+  async function loadVendorSupplierSelector(){
+    // A vendor may now deal with multiple suppliers - list the ones they
+    // actually have a dispatch history with, so Live Inventory/Returns know
+    // which supplier's relationship to operate on.
+    const { data, error } = await sb.from("supplier_dispatches").select("supplier_id").eq("vendor_id", currentVendorId);
+    const supplierIds = [...new Set((data || []).map(d => d.supplier_id))];
+
+    const { data: profiles } = await sb.from("profiles").select("supplier_id, name, business_name").eq("role", "supplier");
+    const nameMap = {};
+    (profiles || []).forEach(p => nameMap[p.supplier_id] = p.business_name || p.name || p.supplier_id);
+
+    const options = supplierIds.length
+      ? supplierIds.map(id => `<option value="${id}">${nameMap[id] || id}</option>`).join("")
+      : `<option value="">No suppliers yet</option>`;
+
+    ["inventory-supplier-select", "returns-supplier-select"].forEach(elId => {
+      const el = document.getElementById(elId);
+      if(el) el.innerHTML = options;
+    });
+
+    if(supplierIds.length){
+      selectedInventorySupplier = supplierIds[0];
+      loadInventory();
+    }
+  }
+
+  function onInventorySupplierChange(){
+    selectedInventorySupplier = document.getElementById("inventory-supplier-select").value;
+    loadInventory();
+  }
+
+  async function loadInventory(){
+    const wrap = document.getElementById("inventory-table-wrap");
+    if(!selectedInventorySupplier) return wrap.innerHTML = `<div class="empty-state">No supplier relationship yet — accept or receive a dispatch first.</div>`;
+    wrap.innerHTML = `<div class="skel-loading"></div>`;
+    const { data, error } = await sb.rpc("get_live_inventory", { p_vendor_id: currentVendorId, p_supplier_id: selectedInventorySupplier });
+    renderInventoryTable(wrap, data, error, currentVendorId);
+  }
+
+  function renderInventoryTable(wrap, rows, error, vendorId){
+    if(error) return wrap.innerHTML = `<div class="empty-state">${error.message}</div>`;
+    if(!rows || rows.length === 0) return wrap.innerHTML = `<div class="empty-state">No products found for ${vendorId} yet.</div>`;
+    wrap.innerHTML = `
+      <table class="responsive-card"><thead><tr><th>Product</th><th>Category</th><th>Supplied</th><th>Sold</th><th>Returned</th><th>Stock</th></tr></thead>
+      <tbody>${rows.map(r => `
+        <tr>
+          <td data-label="Product">${r.product_name} <span class="mono" style="color:var(--text-dim); font-size:0.75rem;">${r.product_code}</span></td>
+          <td data-label="Category">${r.category ?? "—"}</td>
+          <td data-label="Supplied" class="mono">${r.total_supplied}</td>
+          <td data-label="Sold" class="mono">${r.total_sold}</td>
+          <td data-label="Returned" class="mono">${r.total_returned}</td>
+          <td data-label="Stock" class="mono" style="font-weight:600;">${r.current_stock_on_hand}</td>
+        </tr>`).join("")}</tbody></table>`;
+  }
+
+  async function logReturn(){
+    const supplierId = document.getElementById("returns-supplier-select").value;
+    const { error } = await sb.from("vendor_returns").insert({
+      vendor_id: currentVendorId,
+      supplier_id: supplierId,
+      product_code: document.getElementById("r-code").value.trim(),
+      quantity_returned: parseInt(document.getElementById("r-qty").value),
+      reason_for_return: document.getElementById("r-reason").value.trim(),
+    });
+    showMsg("r-msg", error ? error.message : "Return logged", !error);
+  }
+
+  function prefillOrderRequest(productName, productCode){
+    document.querySelectorAll(".nav-item").forEach(n => n.classList.remove("active"));
+    document.querySelectorAll(".section").forEach(s => s.classList.remove("active"));
+    document.querySelector('[data-section="request"]')?.classList.add("active");
+    document.getElementById("section-request")?.classList.add("active");
+    const field = document.getElementById("req-description");
+    if(field) field.value = `${productName} (ref: ${productCode})`;
+  }
+
+  // ---------- Secondary Sales & "AI" Analysis ----------
+  // NOTE: framed in the UI as AI-powered, but this is deliberately a
+  // deterministic aggregation over a fixed sample dataset - not a live
+  // model call. Same output for every viewer, by design (see conversation).
+  const SALES_MONTH_LABELS = ["Apr 2026", "May 2026", "Jun 2026", "Jul 2026"];
+  const SECONDARY_SALES_DATA = [
+    { code: "SKU-101", name: "Stainless Steel Mixer Grinder 750W", months: [18, 22, 25, 24] },
+    { code: "SKU-102", name: "Non-Stick Induction Cooktop", months: [12, 14, 13, 15] },
+    { code: "SKU-103", name: "Ceiling Fan 1200mm Copper Motor", months: [30, 28, 35, 40] },
+    { code: "SKU-104", name: "LED Panel Light 18W", months: [60, 75, 90, 110] },
+    { code: "SKU-105", name: "Pressure Cooker 5L Aluminium", months: [5, 4, 6, 5] },
+    { code: "SKU-106", name: "Water Heater Geyser 15L", months: [8, 9, 10, 12] },
+    { code: "SKU-107", name: "Steel Hardware Cabinet Hinges (Pack of 50)", months: [45, 50, 55, 65] },
+    { code: "SKU-108", name: "Cordless Drill Machine 12V", months: [10, 11, 9, 10] },
+    { code: "SKU-109", name: "Room Heater 2000W Fan Type", months: [3, 2, 4, 3] },
+    { code: "SKU-110", name: "Electric Kettle 1.5L Stainless Steel", months: [25, 30, 38, 48] },
+  ];
+
+  function renderSecondarySalesTable(){
+    const wrap = document.getElementById("secondary-sales-table-wrap");
+    wrap.innerHTML = `
+      <table>
+        <thead><tr><th>Product</th>${SALES_MONTH_LABELS.map(m => `<th>${m}</th>`).join("")}<th>Total</th></tr></thead>
+        <tbody>${SECONDARY_SALES_DATA.map(p => `
+          <tr>
+            <td>${p.name} <span class="mono" style="color:var(--text-dim); font-size:0.75rem;">${p.code}</span></td>
+            ${p.months.map(m => `<td class="mono">${m}</td>`).join("")}
+            <td class="mono" style="font-weight:600;">${p.months.reduce((a,b) => a+b, 0)}</td>
+          </tr>`).join("")}
+        </tbody>
+      </table>`;
+  }
+
+  let salesChartInstance = null;
+
+  function cssVar(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+
+  // Rebuilds the chart from already-ranked labels/data, pulling fresh colors
+  // from CSS variables each time so it can be re-drawn after a theme switch.
+  function renderSalesChart(labels, data){
+    const ctx = document.getElementById("sales-chart").getContext("2d");
+    if(salesChartInstance) salesChartInstance.destroy();
+    salesChartInstance = new Chart(ctx, {
+      type: "bar",
+      data: {
+        labels,
+        datasets: [{
+          label: "Total units sold (last 4 months)",
+          data,
+          // Visual redesign only: single mint accent for the leader, muted bars otherwise.
+          backgroundColor: data.map((v, i) => i === 0 ? cssVar("--accent") : cssVar("--chart-bar-muted")),
+          hoverBackgroundColor: data.map((v, i) => i === 0 ? "#48E6B0" : cssVar("--chart-bar-muted-hover")),
+          borderRadius: 6,
+          borderSkipped: false,
+          maxBarThickness: 46,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: cssVar("--surface"), borderColor: cssVar("--border-strong"), borderWidth: 1,
+            titleColor: cssVar("--text"), bodyColor: cssVar("--text-dim"), padding: 10, displayColors: false,
+            titleFont: { family: "'JetBrains Mono', monospace" },
+            bodyFont: { family: "'JetBrains Mono', monospace" }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            grid: { color: cssVar("--border"), drawBorder: false },
+            border: { display: false },
+            ticks: { color: cssVar("--text-dim"), font: { family: "'JetBrains Mono', monospace", size: 11 } }
+          },
+          x: {
+            grid: { display: false },
+            border: { color: cssVar("--border") },
+            ticks: { color: cssVar("--text-dim"), font: { family: "'JetBrains Mono', monospace", size: 10 } }
+          }
+        }
+      }
+    });
+  }
+
+  async function runAIAnalysis(){
+    const btn = document.getElementById("run-analysis-btn");
+    const resultsBox = document.getElementById("analysis-results");
+    btn.disabled = true;
+    btn.textContent = "Analyzing…";
+
+    // Simulated processing delay - makes the "AI" framing feel real; the
+    // underlying computation is instant and deterministic either way.
+    await new Promise(r => setTimeout(r, 1400));
+
+    const ranked = SECONDARY_SALES_DATA.map(p => ({
+      ...p,
+      total: p.months.reduce((a,b) => a+b, 0),
+    })).sort((a,b) => b.total - a.total);
+
+    const top = ranked[0];
+    const second = ranked[1];
+
+    renderSalesChart(ranked.map(p => p.code), ranked.map(p => p.total));
+
+    document.getElementById("recommendation-text").innerHTML =
+      `<strong>${top.name}</strong> (${top.code}) is your fastest-moving product — sales climbed from ` +
+      `${top.months[0]} to ${top.months[top.months.length-1]} units/month over the last 4 months. ` +
+      `We recommend restocking ${top.code} soon to avoid running out.<br><br>` +
+      `<strong>${second.name}</strong> (${second.code}) is also trending upward and worth watching.`;
+
+    resultsBox.style.display = "block";
+    btn.disabled = false;
+    btn.textContent = "Re-run AI Analysis";
+  }
+
+  // ---------- Init: restore session on reload ----------
+  enterApp();
+</script>
+
+<script>
+  // ============================================================
+  // ADDITIVE ONLY — icon-rail glue, mobile drawer, dashboard hero.
+  // Does not modify any existing function, element id, data-section,
+  // Supabase table/column, or RPC. It drives the primary icon rail by
+  // programmatically clicking the existing secondary nav items, so all
+  // navigation logic above is reused unchanged.
+  // ============================================================
+  function syncRail(group){
+    document.querySelectorAll('.rail .rail-btn[data-group-target]').forEach(function(b){
+      b.classList.toggle('active', b.getAttribute('data-group-target') === group);
+    });
+  }
+  function railNavigate(section){
+    var item = document.querySelector('.subnav .nav-item[data-section="' + section + '"]');
+    if(item) item.click(); // reuse the existing click handler bound in enterApp()
+  }
+  function toggleNav(){
+    var s = document.querySelector('.subnav');
+    var sc = document.querySelector('.scrim');
+    var open = s.classList.toggle('open');
+    if(sc) sc.classList.toggle('show', open);
+  }
+  function closeNav(){
+    var s = document.querySelector('.subnav');
+    var sc = document.querySelector('.scrim');
+    if(s) s.classList.remove('open');
+    if(sc) sc.classList.remove('show');
+  }
+  function buildQuicklinks(){
+    var box = document.getElementById('dash-quicklinks');
+    if(!box) return;
+    var sets = {
+      supplier: [
+        ['catalog','Catalog','Manage your products'],
+        ['dispatches','Dispatches','Log shipments to vendors'],
+        ['incoming-requests','Incoming Requests','Claim open orders'],
+        ['secondary-sales','Analytics','Demand insights']
+      ],
+      vendor: [
+        ['products','Products','Browse the catalog'],
+        ['request','Post Request','Source new stock'],
+        ['inventory','Live Inventory','Stock on hand'],
+        ['secondary-sales','Analytics','Demand insights']
+      ]
+    };
+    var role = (currentRole === 'vendor') ? 'vendor' : 'supplier';
+    var arrow = '<span class="quicklink-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>';
+    box.innerHTML = sets[role].map(function(q){
+      return '<button class="quicklink" onclick="railNavigate(\'' + q[0] + '\')">' +
+             '<span class="quicklink-title">' + q[1] + '</span>' +
+             '<span class="quicklink-sub">' + q[2] + '</span>' + arrow + '</button>';
+    }).join('');
+  }
+  function fillDashboardHero(){
+    var hn = document.getElementById('dash-hero-name');
+    if(hn) hn.textContent = (typeof currentName !== 'undefined' && currentName) ? currentName : 'there';
+    var hr = document.getElementById('dash-hero-role');
+    if(hr){
+      if(currentRole === 'supplier'){ hr.textContent = 'Supplier · ' + (currentSupplierId || ''); hr.className = 'dash-hero-role role-supplier'; }
+      else { hr.textContent = 'Vendor · ' + (currentVendorId || ''); hr.className = 'dash-hero-role role-vendor'; }
+    }
+    buildQuicklinks();
+  }
+  function initRail(){
+    var sup = document.getElementById('nav-supplier');
+    var isSupplier = sup && sup.style.display !== 'none';
+    var railS = document.getElementById('rail-supplier');
+    var railV = document.getElementById('rail-vendor');
+    if(railS) railS.style.display = isSupplier ? 'flex' : 'none';
+    if(railV) railV.style.display = isSupplier ? 'none' : 'flex';
+    syncRail('overview');
+    fillDashboardHero();
+  }
+  (function(){
+    // Keep the rail's active icon in sync + close the mobile drawer + update
+    // the mobile top-bar title whenever a secondary nav item is used.
+    document.addEventListener('click', function(e){
+      var item = e.target.closest && e.target.closest('.nav-item[data-section]');
+      if(!item) return;
+      var g = item.getAttribute('data-group');
+      if(g) syncRail(g);
+      var title = document.getElementById('topbar-title');
+      if(title) title.textContent = item.textContent.trim();
+      closeNav();
+    });
+    // Reveal the correct rail set + fill the dashboard once the shell is active.
+    var shell = document.getElementById('app-shell');
+    var done = false;
+    function tryInit(){
+      if(done || !shell) return;
+      if(shell.classList.contains('active')){ done = true; initRail(); }
+    }
+    if(shell) new MutationObserver(tryInit).observe(shell, { attributes:true, attributeFilter:['class'] });
+    tryInit();
+  })();
+</script>
+</body>
+</html>
